@@ -74,6 +74,11 @@ class Cart:
         shoppingcart = ET.SubElement(root, "shopping-cart")
 
         items = ET.SubElement(shoppingcart, "items")
+
+        checkoutflowsupport = ET.SubElement(root, "checkout-flow-support")
+        merchantcheckoutflowsupport = ET.SubElement(checkoutflowsupport, "merchant-checkout-flow-support")
+        shippingmethods = ET.SubElement(merchantcheckoutflowsupport, "shipping-methods")
+
         self.root = root
     
     def get_google_url(self):
@@ -96,36 +101,117 @@ class Cart:
         itemdescription = ET.SubElement(item, "item-description")
         itemdescription.text = itemDictionary['description']
 
-        itemprice = ET.SubElement(item, "item-price")
+        itemprice = ET.SubElement(item, "unit-price")
+        itemprice.set("currency", "USD")
         itemprice.text = itemDictionary['price']
 
-        itemquantity = ET.SubElement(item, "item-quantity")
+        itemquantity = ET.SubElement(item, "quantity")
         itemquantity.text = itemDictionary['quantity']
+
+        if 'weight' in itemDictionary:
+            itemweight = ET.SubElement(item, "item-weight")
+            itemweight.set("unit", "LB")
+            itemweight.set("value", itemDictionary['weight'])
 
         indent(root)
         xmlString = ET.tostring(root)
 
         self.root = root
-        return xmlString
-         
+        return root
+
+    def add_carrier_shipping(self, carrierDict):
+        root = self.root
+
+
+        shippingmethod= root.find("checkout-flow-support/merchant-checkout-flow-support/shipping-methods")
+
+        if root.find(".//carrier-calculated-shipping") != None:
+            carriercalc = root.find(".//carrier-calculated-shipping")
+            carrieroptions = root.find('.//carrier-calculated-shipping-options')
+        else:
+            carriercalc = ET.SubElement(shippingmethod, 'carrier-calculated-shipping')
+            carrieroptions = ET.SubElement(carriercalc, 'carrier-calculated-shipping-options')
+
+        carrieroption = ET.SubElement(carrieroptions, 'carrier-calculated-shipping-option')
+
+        price = ET.SubElement(carrieroption, 'price')
+        price.set("currency", "USD")
+        price.text = carrierDict['price']
+
+        carrier = ET.SubElement(carrieroption, 'shipping-company')
+        carrier.text = carrierDict['carrier']
+
+        pickupType = ET.SubElement(carrieroption, 'carrier-pickup')
+        pickupType.text = carrierDict['pickupType']
+
+        service = ET.SubElement(carrieroption, 'shipping-type')
+        service.text = carrierDict['service']
+
+        self.root = root
+
+    def add_package(self, packageDict):
+        root = self.root
+
+        # if shipping-packages not there create it
+        if root.find(".//shipping-packages") != None:
+            shippingpackages = root.find(".//shipping-packages")
+        else:
+            carriercalc = root.find(".//carrier-calculated-shipping")
+            shippingpackages = ET.SubElement(carriercalc, "shipping-packages")
+        
+        shippingpackage = ET.SubElement(shippingpackages, "shipping-package")
+
+        residential = ET.SubElement(shippingpackage, 'delivery-address-category')
+        residential.text = 'RESIDENTIAL'
+    
+        # create shipping-package
+        height = ET.SubElement(shippingpackage, 'height')
+        height.set("unit", "IN")
+        height.set("value", packageDict['height'])
+
+        length = ET.SubElement(shippingpackage, 'length')
+        length.set("unit", "IN")
+        length.set("value", packageDict['length'])
+
+        width = ET.SubElement(shippingpackage, 'width')
+        width.set("unit", "IN")
+        width.set("value", packageDict['width'])
+
+        shipfrom = ET.SubElement(shippingpackage, 'ship-from')
+        shipfrom.set("id", "Whitehall Warehouse")
+        city = ET.SubElement(shipfrom, 'city')
+        city.text = 'Whitehall'
+
+        region= ET.SubElement(shipfrom, 'region')
+        region.text = 'MT'
+
+        countrycode = ET.SubElement(shipfrom, 'country-code')
+        countrycode.text = 'US'
+
+        postalcode = ET.SubElement(shipfrom, 'postal-code')
+        postalcode.text = '59759'
+        
+        self.root = root
 
     def build_xml(self):
         root = self.root
 
-        checkoutflowsupport = ET.SubElement(root, "checkout-flow-support")
-        merchantcheckoutflowsupport = ET.SubElement(checkoutflowsupport, "merchant-checkout-flow-support")
-        shippingmethods = ET.SubElement(merchantcheckoutflowsupport, "shipping-methods")
-        flatrateshipping = ET.SubElement(shippingmethods, "flat-rate-shipping")
-        flatrateshipping.set("name", "SuperShip Ground")
-        
-        price = ET.SubElement(flatrateshipping, "price")
-        price.set("currency", "USD")
-        price.text = "9.99" 
 
         indent(root)
         xmlString = ET.tostring(root)
 
         self.root = root
         return xmlString
+
+    def create_link(self):
+
+        xml = self.build_xml()
+        xmlHead = '<?xml version="1.0" encoding="UTF-8"?>'
+        xmlandhead = xmlHead + xml
+        result = send_xml_data(self.get_google_url(), xmlandhead)
         
+        # if link is returned
+        xmlObj = ET.fromstring(result)
+        redirect_url = xmlObj.find(".//{http://checkout.google.com/schema/2}redirect-url")
+        return redirect_url.text
 
