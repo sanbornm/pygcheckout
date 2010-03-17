@@ -193,6 +193,17 @@ class Cart:
         
         self.root = root
 
+    def add_flat_rate_shipping(self,flatDict):
+        root = self.root
+        shippingmethod = root.find(".//shipping-methods")
+        name = ET.SubElement(shippingmethod, "flat-rate-shipping")
+        name.set("name", flatDict['name'])
+
+        price = ET.SubElement(name, "price")
+        price.set("currency", "USD")
+        price.text = flatDict['price']
+        
+
     def build_xml(self):
         root = self.root
 

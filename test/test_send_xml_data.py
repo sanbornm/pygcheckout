@@ -15,6 +15,12 @@ class Test(unittest.TestCase):
                }
         c.add_item(item)
 
+        flat = {
+                   'price' : '0.00',
+                   'name' : 'Free Shipping',
+               }
+        c.add_flat_rate_shipping(flat)
+
         carrier = {
                       'price' : '10.00',
                       'carrier' : 'FedEx',
